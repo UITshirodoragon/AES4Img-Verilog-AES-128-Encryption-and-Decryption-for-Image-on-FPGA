@@ -407,6 +407,17 @@ h1 {
   background: var(--green);
 }
 
+.gallery-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  margin: 0 0 16px 14px;
+  padding: 0 12px;
+  color: var(--cyan);
+  border: 1px solid rgba(84, 214, 255, 0.28);
+  background: rgba(84, 214, 255, 0.08);
+}
+
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -421,6 +432,14 @@ figure {
 .dashboard-shot {
   background: var(--panel);
   border: 1px solid var(--line);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.gallery-grid.is-switching figure,
+.dashboard-shot.is-switching {
+  animation: gallery-switch 420ms ease both;
+  border-color: rgba(84, 214, 255, 0.58);
+  box-shadow: 0 0 30px rgba(84, 214, 255, 0.12);
 }
 
 .gallery-grid img,
@@ -446,6 +465,20 @@ figcaption {
 .dashboard-shot img {
   aspect-ratio: 16 / 9;
   object-fit: contain;
+}
+
+@keyframes gallery-switch {
+  0% {
+    opacity: 0.38;
+    transform: translateX(18px);
+    filter: saturate(0.72) contrast(1.12);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    filter: saturate(1) contrast(1);
+  }
 }
 
 .usage-grid ol {
@@ -599,5 +632,22 @@ th {
 
   .test-switch {
     width: 100%;
+  }
+
+  .gallery-status {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .gallery-grid.is-switching figure,
+  .dashboard-shot.is-switching {
+    animation: none;
   }
 }

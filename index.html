@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="AES4Img - Verilog AES-128 image encryption/decryption demo on FPGA with SRAM, VGA and UART image loading.">
   <title>AES4Img | Verilog AES-128 Image Encryption on FPGA</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
   <header class="site-header">
@@ -26,7 +26,7 @@
       <div class="hero-shade"></div>
       <div class="hero-grid"></div>
       <div class="hero-content">
-        <p class="eyebrow">FPGA · AES-128 · SRAM · VGA · UART</p>
+        <p class="eyebrow">FPGA / AES-128 / SRAM / VGA / UART</p>
         <h1 id="hero-title">AES4Img</h1>
         <p class="hero-copy">
           Verilog AES-128 image encryption/decryption demo for 320x240 RGB565 images,
@@ -131,23 +131,24 @@
         <button type="button" data-test="1" role="tab" aria-selected="false">Test 1</button>
         <button type="button" data-test="2" role="tab" aria-selected="false">Test 2</button>
       </div>
-      <div class="gallery-grid" aria-live="polite">
+      <p class="gallery-status" id="gallery-status" aria-live="polite">Showing Test 0</p>
+      <div class="gallery-grid" id="gallery-grid">
         <figure>
           <img id="img-load" src="assets/vgashot_test0_load.jpg" alt="VGA output after loading test 0 image">
-          <figcaption>LOAD</figcaption>
+          <figcaption id="caption-load">TEST 0 / LOAD</figcaption>
         </figure>
         <figure>
           <img id="img-encrypt" src="assets/vgashot_test0_encrypt.jpg" alt="VGA output after encrypting test 0 image">
-          <figcaption>ENCRYPT</figcaption>
+          <figcaption id="caption-encrypt">TEST 0 / ENCRYPT</figcaption>
         </figure>
         <figure>
           <img id="img-decrypt" src="assets/vgashot_test0_decrypt.jpg" alt="VGA output after decrypting test 0 image">
-          <figcaption>DECRYPT</figcaption>
+          <figcaption id="caption-decrypt">TEST 0 / DECRYPT</figcaption>
         </figure>
       </div>
-      <figure class="dashboard-shot">
+      <figure class="dashboard-shot" id="dashboard-shot">
         <img id="img-dashboard" src="assets/screenshot_test0.png" alt="Dashboard screenshot for test 0">
-        <figcaption>VGA dashboard and quadrant layout</figcaption>
+        <figcaption id="caption-dashboard">TEST 0 / VGA dashboard and quadrant layout</figcaption>
       </figure>
     </section>
 
@@ -208,6 +209,6 @@ python tools/send_image_packet_2.py --gui</code></pre>
     <span>Verilog AES-128 image demo for FPGA labs.</span>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=2"></script>
 </body>
 </html>
