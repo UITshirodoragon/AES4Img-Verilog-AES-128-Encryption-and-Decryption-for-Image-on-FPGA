@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="AES4Img - Verilog AES-128 image encryption/decryption demo on FPGA with SRAM, VGA and UART image loading.">
+  <title>AES4Img | Verilog AES-128 Image Encryption on FPGA</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="AES4Img home">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>AES4Img</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary navigation">
+      <a href="#pipeline">Pipeline</a>
+      <a href="#gallery">Gallery</a>
+      <a href="#usage">Run</a>
+      <a href="#docs">Docs</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-shade"></div>
+      <div class="hero-grid"></div>
+      <div class="hero-content">
+        <p class="eyebrow">FPGA · AES-128 · SRAM · VGA · UART</p>
+        <h1 id="hero-title">AES4Img</h1>
+        <p class="hero-copy">
+          Verilog AES-128 image encryption/decryption demo for 320x240 RGB565 images,
+          streamed from PC to FPGA and visualized live on VGA.
+        </p>
+        <div class="hero-actions">
+          <a class="button primary" href="#gallery">View Results</a>
+          <a class="button" href="docs/ARCHITECTURE.md">Architecture Notes</a>
+        </div>
+      </div>
+      <div class="hero-stats" aria-label="Project stats">
+        <div><strong>320x240</strong><span>RGB565 frame</span></div>
+        <div><strong>9,600</strong><span>AES blocks</span></div>
+        <div><strong>600</strong><span>UART packets</span></div>
+        <div><strong>3</strong><span>SRAM regions</span></div>
+      </div>
+    </section>
+
+    <section class="section intro-band" aria-label="Project summary">
+      <div class="section-head">
+        <p class="eyebrow">Live image crypto pipeline</p>
+        <h2>One board, three memory views, four VGA quadrants.</h2>
+      </div>
+      <div class="summary-grid">
+        <article>
+          <span class="chip-dot dot-green"></span>
+          <h3>UART Image Load</h3>
+          <p>PC sends 600 validated packets into external SRAM before AES starts.</p>
+        </article>
+        <article>
+          <span class="chip-dot dot-cyan"></span>
+          <h3>AES DMA</h3>
+          <p>DMA packs 8 RGB565 pixels into each 128-bit AES block and writes the result back.</p>
+        </article>
+        <article>
+          <span class="chip-dot dot-amber"></span>
+          <h3>VGA Dashboard</h3>
+          <p>Original, encrypted, decrypted and status views appear together at 640x480.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="pipeline" class="section">
+      <div class="section-head">
+        <p class="eyebrow">Circuit flow</p>
+        <h2>From PC pixels to AES blocks.</h2>
+      </div>
+      <div class="pipeline" aria-label="AES4Img pipeline">
+        <div class="node">
+          <span class="node-pin"></span>
+          <strong>PC Image</strong>
+          <small>PNG/JPG/BMP</small>
+        </div>
+        <div class="trace"></div>
+        <div class="node">
+          <span class="node-pin"></span>
+          <strong>UART Packet</strong>
+          <small>0xAA + 256B + CRC8</small>
+        </div>
+        <div class="trace"></div>
+        <div class="node">
+          <span class="node-pin"></span>
+          <strong>SRAM ORIG</strong>
+          <small>0x00000</small>
+        </div>
+        <div class="trace"></div>
+        <div class="node">
+          <span class="node-pin"></span>
+          <strong>AES-128 DMA</strong>
+          <small>8 pixels/block</small>
+        </div>
+        <div class="trace"></div>
+        <div class="node">
+          <span class="node-pin"></span>
+          <strong>VGA Output</strong>
+          <small>ORIG / ENC / DEC</small>
+        </div>
+      </div>
+      <div class="memory-map">
+        <div>
+          <span>ADDR_ORIG</span>
+          <code>18'h00000</code>
+        </div>
+        <div>
+          <span>ADDR_ENC</span>
+          <code>18'h14000</code>
+        </div>
+        <div>
+          <span>ADDR_DEC</span>
+          <code>18'h28000</code>
+        </div>
+      </div>
+    </section>
+
+    <section id="gallery" class="section gallery-section">
+      <div class="section-head">
+        <p class="eyebrow">Captured output</p>
+        <h2>Three test images through load, encrypt and decrypt stages.</h2>
+      </div>
+      <div class="test-switch" role="tablist" aria-label="Select test image">
+        <button class="active" type="button" data-test="0" role="tab" aria-selected="true">Test 0</button>
+        <button type="button" data-test="1" role="tab" aria-selected="false">Test 1</button>
+        <button type="button" data-test="2" role="tab" aria-selected="false">Test 2</button>
+      </div>
+      <div class="gallery-grid" aria-live="polite">
+        <figure>
+          <img id="img-load" src="assets/vgashot_test0_load.jpg" alt="VGA output after loading test 0 image">
+          <figcaption>LOAD</figcaption>
+        </figure>
+        <figure>
+          <img id="img-encrypt" src="assets/vgashot_test0_encrypt.jpg" alt="VGA output after encrypting test 0 image">
+          <figcaption>ENCRYPT</figcaption>
+        </figure>
+        <figure>
+          <img id="img-decrypt" src="assets/vgashot_test0_decrypt.jpg" alt="VGA output after decrypting test 0 image">
+          <figcaption>DECRYPT</figcaption>
+        </figure>
+      </div>
+      <figure class="dashboard-shot">
+        <img id="img-dashboard" src="assets/screenshot_test0.png" alt="Dashboard screenshot for test 0">
+        <figcaption>VGA dashboard and quadrant layout</figcaption>
+      </figure>
+    </section>
+
+    <section id="usage" class="section usage-section">
+      <div class="section-head">
+        <p class="eyebrow">Run path</p>
+        <h2>Build the FPGA image, stream pixels, press start.</h2>
+      </div>
+      <div class="usage-grid">
+        <article>
+          <h3>Quartus</h3>
+          <ol>
+            <li>Open <code>quartus/AES_128_v2_1_uart.qpf</code>.</li>
+            <li>Confirm top-level entity is <code>top_uart</code>.</li>
+            <li>Compile and program the generated FPGA bitstream.</li>
+          </ol>
+        </article>
+        <article>
+          <h3>Python Sender</h3>
+          <pre><code>python -m pip install pillow pyserial tkinterdnd2
+python tools/send_image_packet_2.py --gui</code></pre>
+          <pre><code>python tools/send_image_packet_2.py --path tools/test0.png --port COM3</code></pre>
+        </article>
+        <article>
+          <h3>Controls</h3>
+          <table>
+            <tbody>
+              <tr><th>KEY0</th><td>Reset</td></tr>
+              <tr><th>KEY1</th><td>Start AES</td></tr>
+              <tr><th>SW0</th><td>FAST / SLOW-L3</td></tr>
+              <tr><th>SW1</th><td>Encrypt / Decrypt</td></tr>
+              <tr><th>SW2</th><td>Auto encrypt then decrypt</td></tr>
+              <tr><th>SW8</th><td>Bypass UART wait</td></tr>
+            </tbody>
+          </table>
+        </article>
+      </div>
+    </section>
+
+    <section id="docs" class="section docs-section">
+      <div class="section-head">
+        <p class="eyebrow">Documentation</p>
+        <h2>Repo notes prepared for GitHub.</h2>
+      </div>
+      <div class="doc-links">
+        <a href="README.md">README</a>
+        <a href="docs/ARCHITECTURE.md">Architecture</a>
+        <a href="docs/UART_IMAGE_LOAD.md">UART Image Load</a>
+        <a href="docs/MEMORY_CAVEAT_320x240.md">Memory Caveat</a>
+        <a href="docs/TEST_PLAN.md">Test Plan</a>
+        <a href="docs/GITHUB_PAGES.md">GitHub Pages</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>AES4Img</span>
+    <span>Verilog AES-128 image demo for FPGA labs.</span>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

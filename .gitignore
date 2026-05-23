@@ -1,0 +1,54 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# ModelSim / simulation output
+work/
+transcript
+vsim.wlf
+*.wlf
+*.vcd
+*.fst
+*.ghw
+
+# Quartus generated databases and reports
+quartus/db/
+quartus/incremental_db/
+quartus/output_files/
+quartus/simulation/modelsim/
+*.qws
+*.bak
+*.rpt
+*.summary
+*.smsg
+*.done
+*.pin
+*.pof
+*.sof
+*.jdi
+*.sft
+*.sdo
+*.vo
+*.xrf
+
+# Logs and temporary reports
+*.log
+*.jou
+*.tmp
+*.temp
+
+# GitHub Pages local artifact
+_site/
