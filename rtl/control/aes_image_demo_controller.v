@@ -8,7 +8,8 @@ module aes_image_demo_controller #(
     parameter ADDR_ORIG = 18'h00000,
     parameter ADDR_ENC  = 18'h14000,
     parameter ADDR_DEC  = 18'h28000,
-    parameter HEX_FILE  = "image_320x240_rgb565.hex"
+    parameter ROM_INIT_FROM_FILE = 1,
+    parameter HEX_FILE  = "../image_320x240_rgb565.hex"
 )(
     input  wire        CLOCK_50,
     input  wire        reset_n,
@@ -81,7 +82,12 @@ wire [15:0] loader_wdata;
 wire [16:0] loader_pixel_counter;
 wire [2:0] loader_state_dbg;
 
-image_rom_320x240_rgb565 #(.IMG_W(IMG_W), .IMG_H(IMG_H), .HEX_FILE(HEX_FILE)) u_rom(
+image_rom_320x240_rgb565 #(
+    .IMG_W(IMG_W),
+    .IMG_H(IMG_H),
+    .INIT_FROM_FILE(ROM_INIT_FROM_FILE),
+    .HEX_FILE(HEX_FILE)
+) u_rom(
     .clk(CLOCK_50), .addr(loader_rom_addr), .q(rom_q)
 );
 

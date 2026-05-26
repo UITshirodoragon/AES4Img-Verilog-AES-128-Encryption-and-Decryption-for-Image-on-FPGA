@@ -5,12 +5,13 @@
 // driving UART packets. Keep the board-facing DE2 top in top_de.v.
 //------------------------------------------------------------------------------
 module top #(
-    parameter IMG_W = 320,
-    parameter IMG_H = 240,
+    parameter IMG_W = 16,
+    parameter IMG_H = 2,
     parameter ADDR_ORIG = 18'h00000,
-    parameter ADDR_ENC  = 18'h14000,
-    parameter ADDR_DEC  = 18'h28000,
-    parameter HEX_FILE  = "image_320x240_rgb565.hex"
+    parameter ADDR_ENC  = 18'h00100,
+    parameter ADDR_DEC  = 18'h00200,
+    parameter ROM_INIT_FROM_FILE = 0,
+    parameter HEX_FILE  = "../image_320x240_rgb565.hex"
 )(
     input  wire        CLOCK_50,
     input  wire [3:0]  KEY,
@@ -43,6 +44,7 @@ aes_image_demo_controller #(
     .ADDR_ORIG(ADDR_ORIG),
     .ADDR_ENC(ADDR_ENC),
     .ADDR_DEC(ADDR_DEC),
+    .ROM_INIT_FROM_FILE(ROM_INIT_FROM_FILE),
     .HEX_FILE(HEX_FILE)
 ) u_demo(
     .CLOCK_50(CLOCK_50), .reset_n(KEY[0]), .KEY(KEY), .SW(SW),

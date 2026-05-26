@@ -18,7 +18,7 @@ aes_sram_dma_320x240 #(.IMG_W(16), .IMG_H(2), .ADDR_ORIG(18'h000), .ADDR_ENC(18'
     .cycle_counter(cycle_counter), .active_cycle_counter(active_cycle_counter)
 );
 
-aes_mock_core u_mock(.clk(clk), .reset_n(reset_n), .start(aes_start), .decrypt(aes_decrypt), .block_in(aes_block_in), .block_out(aes_block_out), .busy(aes_busy), .done(aes_done));
+tb_aes_mock_core u_mock(.clk(clk), .reset_n(reset_n), .start(aes_start), .decrypt(aes_decrypt), .block_in(aes_block_in), .block_out(aes_block_out), .busy(aes_busy), .done(aes_done));
 
 initial clk=0; always #5 clk=~clk;
 integer i;
@@ -44,4 +44,46 @@ initial begin
     end
     $display("PASS: tb_aes_sram_dma_320x240_selftest"); $finish;
 end
+endmodule
+
+// Local mock keeps this unit test self-contained when ModelSim compiles the
+// testbench directly from a Quartus-generated script.
+module tb_aes_mock_core(
+    input  wire        clk,
+    input  wire        reset_n,
+    input  wire        start,
+    input  wire        decrypt,
+    input  wire [127:0] block_in,
+    output reg  [127:0] block_out,
+    output reg         busy,
+    output reg         done
+);
+reg [1:0] cnt;
+reg [127:0] block_latched;
+
+always @(posedge clk or negedge reset_n) begin
+    if (!reset_n) begin
+        cnt <= 2'd0;
+        busy <= 1'b0;
+        done <= 1'b0;
+        block_out <= 128'd0;
+        block_latched <= 128'd0;
+    end else begin
+        done <= 1'b0;
+        if (start && !busy) begin
+            busy <= 1'b1;
+            cnt <= 2'd3;
+            block_latched <= block_in;
+        end else if (busy) begin
+            if (cnt == 2'd0) begin
+                busy <= 1'b0;
+                done <= 1'b1;
+                block_out <= block_latched ^ 128'h00112233445566778899aabbccddeeff;
+            end else begin
+                cnt <= cnt - 2'd1;
+            end
+        end
+    end
+end
+
 endmodule
