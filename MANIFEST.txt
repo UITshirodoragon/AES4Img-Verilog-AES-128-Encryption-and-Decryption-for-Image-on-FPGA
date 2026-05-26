@@ -41,8 +41,7 @@ assets/vgashot_test2_decrypt.jpg
 RTL top-levels
 --------------
 rtl/top.v
-rtl/top_preloaded.v
-rtl/top_uart.v
+rtl/top_de.v
 
 RTL AES core
 ------------
@@ -67,7 +66,6 @@ rtl/aes_core/rcon_gen.v
 RTL control / DMA / memory
 --------------------------
 rtl/control/aes_image_demo_controller.v
-rtl/control/aes_image_demo_controller_preloaded.v
 rtl/control/aes_image_demo_controller_uart.v
 rtl/control/button_edge.v
 rtl/control/input_control.v
@@ -81,7 +79,6 @@ rtl/sram/sram_phy_async16.v
 RTL UART
 --------
 rtl/uart/baud_rate_gen.v
-rtl/uart/hex7seg.v
 rtl/uart/uart_controller.v
 rtl/uart/uart_image_loader_320x240.v
 rtl/uart/uart_rx.v
@@ -134,16 +131,14 @@ image_320x240_rgb565.mif
 
 Quartus source project files
 ----------------------------
-quartus/AES_128.sdc
-quartus/AES_128_v2.qpf
-quartus/AES_128_v2.qsf
-quartus/AES_128_v2_1_uart.qpf
-quartus/AES_128_v2_1_uart.qsf
+quartus/AES4Img.sdc
+quartus/AES4Img.qpf
+quartus/AES4Img.qsf
 
 Reference code
 --------------
-legacy/
-legacy_uart/
+legacy/       (archive only, not compiled)
+legacy_uart/  (archive only, not compiled)
 
 Ignored/generated locally
 -------------------------

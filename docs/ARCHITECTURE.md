@@ -1,98 +1,252 @@
 # Kiến Trúc AES4Img
 
-Tài liệu này mô tả kiến trúc hiện tại của repo AES4Img: nhận ảnh RGB565 320x240, lưu vào SRAM, xử lý AES-128 theo block 8 pixel, và hiển thị kết quả qua VGA 640x480.
+Tài liệu này mô tả kiến trúc chính sau khi rút gọn của AES4Img. Repo chỉ còn 2 top-level đang được bảo trì:
 
-## Mục tiêu thiết kế
+- `rtl/top_de.v`: top phần cứng để compile/nạp lên kit DE2.
+- `rtl/top.v`: top mô phỏng, smoke-test, testbench và debug.
 
-- Giữ nguyên AES encryption/decryption core đã có, chỉ chuẩn hóa interface bằng wrapper.
-- Tránh dùng internal ROM lớn trong flow demo thật vì ảnh 320x240 RGB565 cần khoảng 1.23 Mbit.
-- Cho UART loader, AES DMA và VGA cùng chia sẻ external SRAM có priority rõ ràng.
-- Có fast mode để đo throughput và slow mode để quan sát ảnh thay đổi trên VGA.
-- Tách module theo chức năng để dễ mô phỏng, thay top-level, hoặc nâng cấp từng khối.
+Hai thư mục `legacy/` và `legacy_uart/` được giữ lại để tham khảo lịch sử, nhưng không nằm trong Quartus project, không nằm trong ModelSim source list chính, và không ảnh hưởng đến kiến trúc hiện tại.
 
-## Dataflow tổng quát
+## Mục Tiêu Thiết Kế
+
+- Nhận ảnh RGB565 320x240 từ PC qua UART trong flow phần cứng thật.
+- Lưu ảnh gốc, ảnh mã hóa và ảnh giải mã trong external SRAM 16-bit.
+- Xử lý AES-128 theo block 128-bit, tương đương 8 pixel RGB565 mỗi block.
+- Hiển thị đồng thời ảnh gốc, ảnh mã hóa, ảnh giải mã và dashboard debug qua VGA 640x480.
+- Giữ nguyên AES encryption/decryption core gốc, chỉ chuẩn hóa interface bằng wrapper `start/busy/done`.
+- Tách top phần cứng và top test để tránh đưa ROM ảnh lớn vào build DE2 thật.
+
+## Top-Level Chính
+
+| Top-level | Mục đích | Controller | Đường ảnh đầu vào | Compile chính |
+|---|---|---|---|---|
+| `rtl/top_de.v` | Nạp kit DE2 thật | `aes_image_demo_controller_uart` | PC gửi qua UART/RS232 | Có, trong `quartus/AES4Img.qsf` |
+| `rtl/top.v` | Smoke-test, testbench, debug | `aes_image_demo_controller` | ROM HEX nội bộ qua `$readmemh` | Không dùng cho Quartus phần cứng thật |
+
+`top_de.v` là top-level phần cứng chính. `top.v` vẫn được giữ vì testbench cần một top ổn định, có parameter để rút nhỏ ảnh khi mô phỏng.
+
+## Dataflow Phần Cứng `top_de`
 
 ```text
 PC image
-  |
-  | 0xAA + 256 payload bytes + CRC8
-  v
-UART RX / packet checker
-  |
-  | 128 RGB565 words per packet
-  v
-SRAM ADDR_ORIG
-  |
-  | DMA reads 8 pixels = 128-bit AES block
-  v
-AES-128 wrapper
-  |
-  | DMA writes 8 RGB565 words
-  v
-SRAM ADDR_ENC or ADDR_DEC
-  |
-  v
-VGA quadrant renderer + dashboard
+  -> tools/send_image_packet_2.py
+  -> UART 115200 8N1
+  -> uart_controller
+  -> uart_rx_packet_256
+  -> uart_sram_packet_writer_320x240
+  -> SRAM[ADDR_ORIG]
+  -> aes_sram_dma_320x240
+  -> aes128_core_wrapper
+  -> SRAM[ADDR_ENC] hoặc SRAM[ADDR_DEC]
+  -> vga_system_640x480
+  -> VGA monitor
 ```
 
-## SRAM map
-
-```verilog
-ADDR_ORIG = 18'h00000; // original image
-ADDR_ENC  = 18'h14000; // encrypted image
-ADDR_DEC  = 18'h28000; // decrypted image
-```
-
-Với ảnh 320x240:
+## Dataflow Test/Debug `top`
 
 ```text
-Pixels per image = 320 * 240 = 76,800
-Word size        = 16-bit RGB565
-Bytes per image  = 153,600
-AES block        = 8 pixels = 128 bits
+image_320x240_rgb565.hex
+  -> image_rom_320x240_rgb565
+  -> image_loader_320x240
+  -> SRAM[ADDR_ORIG]
+  -> aes_sram_dma_320x240
+  -> aes128_core_wrapper
+  -> SRAM[ADDR_ENC] hoặc SRAM[ADDR_DEC]
+  -> vga_system_640x480
+```
+
+## Memory Map
+
+External SRAM dùng địa chỉ word 16-bit, mỗi pixel RGB565 chiếm 1 word.
+
+```verilog
+ADDR_ORIG = 18'h00000; // 0x00000..0x12BFF, ảnh gốc
+ADDR_ENC  = 18'h14000; // 0x14000..0x26BFF, ảnh đã mã hóa
+ADDR_DEC  = 18'h28000; // 0x28000..0x3ABFF, ảnh đã giải mã
+```
+
+Với ảnh mặc định:
+
+```text
+IMG_W            = 320
+IMG_H            = 240
+Pixels/image     = 76,800
+Bytes/image      = 153,600
+Words/image      = 76,800
+AES block        = 128 bit = 8 pixel RGB565
 AES blocks/image = 9,600
 ```
 
-## VGA layout
+Ba vùng ảnh cần tổng cộng `230,400` word SRAM. Khoảng trống giữa các base address giúp debug địa chỉ dễ hơn.
 
-VGA chạy 640x480, chia 4 vùng 320x240:
+## Interface `top_de.v`
+
+### Input
+
+| Tín hiệu | Rộng | Chức năng |
+|---|---:|---|
+| `CLOCK_50` | 1 | Clock hệ thống 50 MHz |
+| `KEY[0]` | 1 | Reset active-low |
+| `KEY[1]` | 1 | Start AES operation |
+| `KEY[2]` | 1 | Pause/resume DMA |
+| `KEY[3]` | 1 | Step/debug pulse |
+| `SW[0]` | 1 | `0=FAST`, `1=SLOW-L3` |
+| `SW[1]` | 1 | `0=ENCRYPT`, `1=DECRYPT` |
+| `SW[2]` | 1 | Auto encrypt rồi decrypt |
+| `SW[5]` | 1 | Verify marker enable |
+| `SW[6]` | 1 | Clear status/reload marker |
+| `SW[7]` | 1 | Debug pattern |
+| `SW[8]` | 1 | Bypass UART wait nếu `ADDR_ORIG` đã được preload |
+| `UART_RXD` | 1 | UART receive từ PC |
+
+`SW[3]`, `SW[4]`, `SW[9]..SW[17]` hiện chưa dùng trong controller chính.
+
+### Output/Inout
+
+| Tín hiệu | Rộng | Chức năng |
+|---|---:|---|
+| `UART_TXD` | 1 | UART ACK/NACK về PC |
+| `SRAM_ADDR[17:0]` | 18 | External SRAM address |
+| `SRAM_DQ[15:0]` | 16 | External SRAM data bus bidirectional |
+| `SRAM_WE_N` | 1 | SRAM write enable active-low |
+| `SRAM_OE_N` | 1 | SRAM output enable active-low |
+| `SRAM_UB_N` | 1 | SRAM upper byte enable active-low |
+| `SRAM_LB_N` | 1 | SRAM lower byte enable active-low |
+| `SRAM_CE_N` | 1 | SRAM chip enable active-low |
+| `VGA_HS`, `VGA_VS` | 1 | VGA sync |
+| `VGA_R/G/B[9:0]` | 10 mỗi kênh | VGA color output |
+| `VGA_CLK` | 1 | Pixel clock 25 MHz |
+| `VGA_BLANK_N` | 1 | VGA blank active-low |
+| `VGA_SYNC_N` | 1 | VGA sync active-low, giữ 0 theo board DAC |
+| `LEDR[17:0]` | 18 | Debug state/counter |
+| `LEDG[8:0]` | 9 | Debug flags |
+
+## Controller `aes_image_demo_controller_uart`
+
+Flow phần cứng chính:
 
 ```text
-+----------------------+----------------------+
-| ORIG                 | DASHBOARD            |
-| SRAM[ADDR_ORIG]      | text status/debug    |
-+----------------------+----------------------+
-| ENC                  | DEC                  |
-| SRAM[ADDR_ENC]       | SRAM[ADDR_DEC]       |
-+----------------------+----------------------+
+C_CLEAR_SRAM
+  -> clear ORIG/ENC/DEC sau reset
+C_WAIT_IMAGE
+  -> chờ PC gửi đủ 600 packet hoặc SW[8] bypass
+C_IDLE
+  -> chờ KEY[1]
+C_ENC_RUN
+  -> DMA encrypt ORIG -> ENC
+C_ENC_OK
+  -> set encrypt done flag
+C_DEC_RUN
+  -> DMA decrypt ENC -> DEC
+C_DEC_OK
+  -> set decrypt done flag
+C_DONE
+  -> giữ kết quả trên VGA, KEY[1] quay về idle
 ```
 
-Các module chính:
-
-- `vga_timing_640x480.v`: tạo timing 640x480@60Hz từ clock 25 MHz.
-- `vga_sram_reader.v`: tạo request đọc SRAM cho 3 vùng ảnh.
-- `vga_quadrant_renderer_320x240.v`: render pixel RGB565 và label vùng.
-- `text_dashboard.v`: render trạng thái controller, DMA, AES, UART, packet, CRC.
-- `vga_system_640x480.v`: ghép timing, reader, renderer và dashboard.
-
-## AES core boundary
-
-`rtl/aes_core/aes128_core_wrapper.v` là ranh giới IP ổn định:
+Các state được mã hóa bằng `localparam` trong controller:
 
 ```verilog
-start
-decrypt
-block_in[127:0]
-key[127:0]
-  -> block_out[127:0]
-  -> busy
-  -> done
+C_WAIT_IMAGE = 4'd0;
+C_IDLE       = 4'd1;
+C_ENC_RUN    = 4'd2;
+C_ENC_OK     = 4'd3;
+C_DEC_RUN    = 4'd4;
+C_DEC_OK     = 4'd5;
+C_DONE       = 4'd6;
+C_CLEAR_SRAM = 4'd7;
 ```
 
-Wrapper giữ nguyên hai core cũ:
+## UART Packet Interface
 
-- `aes_encryption_core.v`
-- `aes_decryption_core.v`
+PC gửi đúng 600 packet cho ảnh 320x240 RGB565:
+
+```text
+HEADER : 0xAA
+DATA   : 256 bytes
+CRC8   : 1 byte, polynomial 0x07, init 0xFF, tính trên DATA
+ACK    : 0x06
+NACK   : 0x15
+```
+
+Mỗi packet chứa 256 byte, tương đương 128 pixel RGB565. Byte order là high byte trước, low byte sau:
+
+```verilog
+sram_wdata <= {high_byte, low_byte};
+```
+
+## SRAM Arbitration
+
+`top_de.v` dùng `sram_arbiter_3m.v` với 3 master:
+
+| Master | Chức năng |
+|---|---|
+| UART loader | Ghi ảnh gốc vào `ADDR_ORIG` |
+| AES DMA | Đọc/ghi ORIG, ENC, DEC |
+| VGA reader | Đọc 3 vùng ảnh để hiển thị |
+
+Priority:
+
+```text
+UART loader > AES DMA > VGA reader
+```
+
+`top.v` dùng `sram_arbiter.v` với 2 master: ROM loader/AES DMA dùng chung slot DMA, và VGA reader.
+
+## AES DMA
+
+`rtl/dma/aes_sram_dma_320x240.v` là cầu nối SRAM và AES wrapper.
+
+Input điều khiển chính:
+
+| Tín hiệu | Chức năng |
+|---|---|
+| `start` | Bắt đầu chạy một lượt ảnh |
+| `decrypt` | `0`: ORIG->ENC, `1`: ENC->DEC |
+| `fast_mode` | Chạy tối đa throughput |
+| `slow_level` | Mức throttle khi quan sát VGA |
+| `pause` | Dừng/tiếp tục DMA |
+| `step` | Bước debug |
+| `frame_tick` | Tick theo frame VGA để throttle |
+
+FSM DMA:
+
+```verilog
+S_IDLE       = 4'd0;
+S_READ_REQ   = 4'd1;
+S_READ_WAIT  = 4'd2;
+S_READ_CAP   = 4'd3;
+S_AES_START  = 4'd4;
+S_AES_WAIT   = 4'd5;
+S_WRITE_REQ  = 4'd6;
+S_WRITE_WAIT = 4'd7;
+S_NEXT       = 4'd8;
+S_THROTTLE   = 4'd9;
+S_DONE       = 4'd10;
+```
+
+Byte/word packing:
+
+- Pixel 0 đi vào `aes_block_in[127:112]`.
+- Pixel 7 đi vào `aes_block_in[15:0]`.
+- Khi ghi kết quả, mapping được đảo ngược tương ứng từ `aes_block_out`.
+
+## AES Wrapper
+
+`rtl/aes_core/aes128_core_wrapper.v` là interface ổn định của AES core:
+
+```verilog
+input  clk;
+input  reset_n;
+input  start;
+input  decrypt;
+input  [127:0] block_in;
+input  [127:0] key;
+output [127:0] block_out;
+output busy;
+output done;
+output [3:0] core_state_dbg;
+```
 
 Khóa mặc định trong controller:
 
@@ -100,105 +254,67 @@ Khóa mặc định trong controller:
 128'h2b7e151628aed2a6abf7158809cf4f3c
 ```
 
-## AES/SRAM DMA
+## VGA Subsystem
 
-`rtl/dma/aes_sram_dma_320x240.v` đọc ảnh theo từng block:
-
-1. Đọc 8 word RGB565 liên tiếp từ vùng nguồn.
-2. Pack thành `block_in[127:0]`.
-3. Gửi `start` cho AES wrapper.
-4. Chờ `done`.
-5. Unpack `block_out[127:0]` thành 8 word RGB565.
-6. Ghi vào vùng đích.
-
-Nguồn và đích phụ thuộc mode:
-
-| Mode | Nguồn | Đích |
-|---|---|---|
-| Encrypt | `ADDR_ORIG` | `ADDR_ENC` |
-| Decrypt | `ADDR_ENC` | `ADDR_DEC` |
-
-## SRAM arbitration
-
-Repo có 2 arbiter:
-
-| Module | Số master | Dùng ở đâu |
-|---|---:|---|
-| `sram_arbiter.v` | 2 | ROM/preloaded profile: DMA và VGA |
-| `sram_arbiter_3m.v` | 3 | UART profile: UART loader, AES DMA, VGA |
-
-Priority trong UART profile:
+VGA chạy 640x480 và chia màn hình thành 4 vùng 320x240:
 
 ```text
-UART loader > AES DMA > VGA reader
++----------------------+----------------------+
+| ORIG                 | DASHBOARD            |
+| SRAM[ADDR_ORIG]      | state/counter/debug  |
++----------------------+----------------------+
+| ENC                  | DEC                  |
+| SRAM[ADDR_ENC]       | SRAM[ADDR_DEC]       |
++----------------------+----------------------+
 ```
 
-Lý do:
+Module:
 
-- Khi đang load ảnh, UART phải ghi SRAM liên tục để hoàn thành packet.
-- Khi AES chạy fast mode, DMA cần toàn quyền SRAM để đạt throughput.
-- VGA chỉ đọc khi hệ thống cho phép xem ảnh, hoặc khi DMA đang throttle trong slow mode.
+- `vga_timing_640x480.v`: sinh `x`, `y`, `video_on`, `frame_tick_25`, HS/VS.
+- `vga_sram_reader.v`: tạo request SRAM cho ORIG/ENC/DEC.
+- `vga_quadrant_renderer_320x240.v`: render RGB565 và label vùng.
+- `text_dashboard.v`: render state controller, DMA, AES, UART, packet, CRC.
+- `vga_system_640x480.v`: ghép toàn bộ VGA pipeline.
 
-## System phases trong `top_uart`
+## Parameter Và Define
 
-`rtl/control/aes_image_demo_controller_uart.v` điều khiển flow chính:
+Thiết kế hiện không dùng global `` `define `` cho cấu hình chính. Các cấu hình quan trọng dùng `parameter` và `localparam`.
 
-```text
-C_CLEAR_SRAM
-  -> xóa 3 vùng ORIG/ENC/DEC sau reset
-C_WAIT_IMAGE
-  -> chờ PC gửi đủ 600 packet
-C_IDLE
-  -> ảnh đã sẵn sàng, chờ KEY[1]
-C_ENC_RUN
-  -> DMA encrypt ORIG -> ENC
-C_ENC_OK
-  -> lưu flag encrypt done
-C_DEC_RUN
-  -> DMA decrypt ENC -> DEC
-C_DEC_OK
-  -> lưu flag decrypt done
-C_DONE
-  -> hiển thị kết quả, KEY[1] quay lại idle
+Parameter top/debug:
+
+```verilog
+IMG_W     = 320;
+IMG_H     = 240;
+ADDR_ORIG = 18'h00000;
+ADDR_ENC  = 18'h14000;
+ADDR_DEC  = 18'h28000;
+HEX_FILE  = "image_320x240_rgb565.hex"; // chỉ dùng trong top.v
 ```
 
-`SW[8]` bypasses UART wait nếu `ADDR_ORIG` đã được preload bằng công cụ khác.
+Parameter UART:
 
-## Fast mode và Slow-L3
-
-`input_control.v` giải mã:
-
-```text
-SW[0] = 0 -> FAST
-SW[0] = 1 -> SLOW-L3
+```verilog
+TOTAL_PACKETS = 600;
+PACKET_DATA_SIZE = 256 bytes; // cố định trong packet parser/writer
 ```
 
-Fast mode:
+Parameter baud:
 
-- AES/DMA được ưu tiên throughput.
-- VGA image read bị chặn khi UART loader hoặc AES DMA busy.
-- Dashboard vẫn hiển thị trạng thái.
+```verilog
+OV_MAX_COUNT = 27; // baud_rate_gen.v, cấu hình hiện tại cho UART 115200 trên 50 MHz
+```
 
-Slow-L3:
+## Source Chính Sau Rút Gọn
 
-- DMA được throttle theo frame tick.
-- VGA có slot đọc SRAM để ảnh ORIG/ENC/DEC hiện dần trên màn hình.
-- Phù hợp demo trực quan hơn là đo tốc độ.
+Quartus phần cứng thật chỉ dùng `quartus/AES4Img.qpf` và `quartus/AES4Img.qsf`. Source list này trỏ tới cây `top_de.v` và không include ROM/debug top.
 
-## Top-level profiles
+Simulation chính dùng `sim/scripts/rtl_files.f` và `sim/scripts/modelsim_compile_functional.do`. Source list này include cả `top_de.v` và `top.v`, nhưng không include các profile đã loại bỏ.
 
-| Top-level | Controller | SRAM master set | Input image path |
-|---|---|---|---|
-| `top_uart.v` | `aes_image_demo_controller_uart` | UART + DMA + VGA | PC gửi qua UART |
-| `top_preloaded.v` | `aes_image_demo_controller_preloaded` | DMA + VGA | External SRAM đã có ORIG |
-| `top.v` | `aes_image_demo_controller` | ROM loader + DMA + VGA | Internal ROM đọc HEX |
+Các file đã loại khỏi kiến trúc chính:
 
-`top_uart` là flow khuyến nghị cho phần cứng thật vì không cần synthesize ROM ảnh 320x240 trong FPGA.
+- `rtl/top_uart.v`: đã đổi vai trò thành `rtl/top_de.v`.
+- `rtl/top_preloaded.v`: bỏ profile top riêng.
+- `rtl/control/aes_image_demo_controller_preloaded.v`: không còn controller riêng.
+- `rtl/uart/hex7seg.v`: không được gọi từ top chính.
 
-## Extension points
-
-- Thay AES core: giữ interface của `aes128_core_wrapper.v`.
-- Tăng baudrate: cập nhật cả `tools/send_image_packet_2.py` và `rtl/uart/baud_rate_gen.v`.
-- Thêm readback UART: thêm command/packet mới sau khi image load.
-- Verify phần cứng đầy đủ: thêm DMA compare pass đọc `ADDR_ORIG` và `ADDR_DEC`.
-- Hỗ trợ ảnh kích thước khác: parameter `IMG_W`, `IMG_H`, address map, packet count và VGA layout đều cần đồng bộ.
+`legacy/` và `legacy_uart/` vẫn còn trong repo, nhưng chỉ là archive tham khảo.

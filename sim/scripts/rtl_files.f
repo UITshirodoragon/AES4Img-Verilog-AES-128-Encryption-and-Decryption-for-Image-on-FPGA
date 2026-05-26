@@ -16,7 +16,6 @@ rtl/aes_core/aes_decryption_core.v
 rtl/aes_core/aes_encryption_core.v
 rtl/aes_core/rcon_gen.v
 rtl/control/aes_image_demo_controller.v
-rtl/control/aes_image_demo_controller_preloaded.v
 rtl/control/aes_image_demo_controller_uart.v
 rtl/control/button_edge.v
 rtl/control/input_control.v
@@ -33,10 +32,8 @@ rtl/uart/uart_controller.v
 rtl/uart/uart_rx_packet_256.v
 rtl/uart/uart_sram_packet_writer_320x240.v
 rtl/uart/uart_image_loader_320x240.v
-rtl/uart/hex7seg.v
 rtl/top.v
-rtl/top_preloaded.v
-rtl/top_uart.v
+rtl/top_de.v
 rtl/vga/font_rom_8x8.v
 rtl/vga/text_dashboard.v
 rtl/vga/vga_quadrant_renderer_320x240.v

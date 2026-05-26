@@ -52,11 +52,9 @@ vlog -work work rtl/vga/vga_system_640x480.v
 
 # Top/control variants
 vlog -work work rtl/control/aes_image_demo_controller.v
-vlog -work work rtl/control/aes_image_demo_controller_preloaded.v
 vlog -work work rtl/control/aes_image_demo_controller_uart.v
 vlog -work work rtl/top.v
-vlog -work work rtl/top_preloaded.v
-vlog -work work rtl/top_uart.v
+vlog -work work rtl/top_de.v
 
 # Simulation models and testbenches
 vlog -work work sim/models/aes_mock_core.v

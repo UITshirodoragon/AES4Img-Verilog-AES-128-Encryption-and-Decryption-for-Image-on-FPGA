@@ -1,12 +1,11 @@
 //------------------------------------------------------------------------------
-// top_uart.v - FPGA top-level for AES image live demo with UART/RS232 image load.
-// Flow:
-//   1) Reset.
-//   2) FPGA waits for PC to send 320x240 RGB565 image over UART.
-//   3) UART loader writes image to SRAM_ORIG.
-//   4) User starts AES encrypt/decrypt demo.
+// top_de.v - DE2 hardware top-level for AES4Img.
+//
+// This is the board-facing top used by Quartus. It loads a 320x240 RGB565 image
+// from PC over UART/RS232, stores it in external SRAM, runs AES-128 through DMA,
+// and renders ORIG/ENC/DEC plus debug dashboard over VGA.
 //------------------------------------------------------------------------------
-module top_uart(
+module top_de(
     input  wire        CLOCK_50,
     input  wire [3:0]  KEY,
     input  wire [17:0] SW,
@@ -42,9 +41,23 @@ module top_uart(
         .SW(SW),
         .UART_RXD(UART_RXD),
         .UART_TXD(UART_TXD),
-        .SRAM_ADDR(SRAM_ADDR), .SRAM_DQ(SRAM_DQ), .SRAM_WE_N(SRAM_WE_N), .SRAM_OE_N(SRAM_OE_N), .SRAM_UB_N(SRAM_UB_N), .SRAM_LB_N(SRAM_LB_N), .SRAM_CE_N(SRAM_CE_N),
-        .VGA_HS(VGA_HS), .VGA_VS(VGA_VS), .VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B), .VGA_CLK(VGA_CLK), .VGA_BLANK_N(VGA_BLANK_N), .VGA_SYNC_N(VGA_SYNC_N),
-        .LEDR(LEDR), .LEDG(LEDG)
+        .SRAM_ADDR(SRAM_ADDR),
+        .SRAM_DQ(SRAM_DQ),
+        .SRAM_WE_N(SRAM_WE_N),
+        .SRAM_OE_N(SRAM_OE_N),
+        .SRAM_UB_N(SRAM_UB_N),
+        .SRAM_LB_N(SRAM_LB_N),
+        .SRAM_CE_N(SRAM_CE_N),
+        .VGA_HS(VGA_HS),
+        .VGA_VS(VGA_VS),
+        .VGA_R(VGA_R),
+        .VGA_G(VGA_G),
+        .VGA_B(VGA_B),
+        .VGA_CLK(VGA_CLK),
+        .VGA_BLANK_N(VGA_BLANK_N),
+        .VGA_SYNC_N(VGA_SYNC_N),
+        .LEDR(LEDR),
+        .LEDG(LEDG)
     );
 
 endmodule

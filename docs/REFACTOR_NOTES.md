@@ -1,89 +1,82 @@
 # Refactor Notes
 
-Repo này đã được tổ chức lại để tách rõ AES core, DMA, SRAM, VGA, UART và top-level profiles. Phần refactor giữ nguyên thuật toán AES gốc, chỉ bọc lại và ghép hệ thống theo kiến trúc dễ mô phỏng hơn.
+Tài liệu này ghi lại quyết định rút gọn kiến trúc AES4Img.
 
-## Được giữ lại
+## Quyết Định Đã Chốt
 
-- `aes_encryption_core.v`
-- `aes_decryption_core.v`
-- Các khối AES datapath gốc:
-  - `Sbox_8bits.v`
-  - `Inv_Sbox_8bits.v`
-  - `SubBytes.v`
-  - `InvSubBytes.v`
-  - `ShiftRows.v`
-  - `InvShiftRows.v`
-  - `MixColumns.v`
-  - `Inv_MixColumns.v`
-  - `KeyExpansion.v`
-  - `InvKeyExpansion.v`
-  - `rcon_gen.v`
-- Khóa demo mặc định `2b7e151628aed2a6abf7158809cf4f3c`.
-- Thư mục `legacy/` để đối chiếu source ban đầu.
+Project chính chỉ giữ 2 top-level:
 
-## Đã thay đổi về tổ chức hệ thống
+| Top | Vai trò |
+|---|---|
+| `rtl/top_de.v` | Top phần cứng để compile/nạp kit DE2 |
+| `rtl/top.v` | Top cho smoke-test, testbench và debug |
 
-- Không dùng một `MasterController` lớn gộp VGA/SRAM/AES như kiến trúc cũ.
-- Thêm `aes128_core_wrapper.v` để chuẩn hóa core AES thành IP có `start`, `busy`, `done`.
-- Thêm `aes_sram_dma_320x240.v` để xử lý ảnh theo block 8 pixel.
-- Thêm SRAM arbiter để tách quyền truy cập SRAM giữa các master.
-- Thêm VGA dashboard 320x240 ở góc trên phải.
-- Thêm profile ROM, preloaded SRAM và UART live loader.
-- Thêm testbench self-checking cho AES wrapper, DMA, SRAM arbiter, UART packet và smoke test hệ thống.
+`legacy/` và `legacy_uart/` vẫn được giữ trong repo để tham khảo, nhưng không compile và không ảnh hưởng project chính.
 
-## Các profile hiện tại
+## Thay Đổi Chính
 
-| Profile | Top-level | Mục tiêu |
-|---|---|---|
-| ROM | `rtl/top.v` | Simulation hoặc FPGA đủ RAM nội bộ |
-| Preloaded | `rtl/top_preloaded.v` | External SRAM đã có ảnh gốc |
-| UART | `rtl/top_uart.v` | Demo thật với PC gửi ảnh qua UART |
+- Đổi Quartus project chính thành `quartus/AES4Img.qpf`.
+- Đổi `TOP_LEVEL_ENTITY` thành `top_de`.
+- Tách rõ `top_de.v` cho board thật và `top.v` cho mô phỏng/debug.
+- Thêm parameter cho `top.v` để testbench có thể rút nhỏ `IMG_W`, `IMG_H`, `ADDR_*`, `HEX_FILE`.
+- Cập nhật `tb_system_smoke_small.v` để instantiate `top` thay vì gọi trực tiếp controller.
+- Cập nhật ModelSim source list để chỉ include các module còn thuộc kiến trúc chính.
 
-## v2.1 UART upgrade
+## File Đã Loại Khỏi RTL Chính
 
-v2.1 thêm đường load ảnh từ PC:
+Các file sau đã được bỏ khỏi `rtl/` active vì không còn nằm trong cây reachable từ 2 top chính:
+
+- `rtl/top_uart.v`: vai trò đã được thay bằng `rtl/top_de.v`.
+- `rtl/top_preloaded.v`: bỏ profile top riêng.
+- `rtl/control/aes_image_demo_controller_preloaded.v`: bỏ controller preloaded riêng.
+- `rtl/uart/hex7seg.v`: không còn được gọi từ top chính.
+
+## File Vẫn Giữ
+
+Các module sau vẫn cần thiết:
+
+- `rtl/control/aes_image_demo_controller_uart.v`: controller phần cứng cho `top_de`.
+- `rtl/control/aes_image_demo_controller.v`: controller ROM/debug cho `top`.
+- `rtl/dma/aes_sram_dma_320x240.v`: DMA AES/SRAM dùng chung.
+- `rtl/dma/image_loader_320x240.v`: ROM-to-SRAM loader cho `top`.
+- `rtl/rom/image_rom_320x240_rgb565.v`: ROM test/debug cho `top`.
+- `rtl/sram/sram_arbiter_3m.v`: arbiter UART + DMA + VGA cho `top_de`.
+- `rtl/sram/sram_arbiter.v`: arbiter DMA + VGA cho `top`.
+
+## Quartus Project Chính
+
+Project chính:
 
 ```text
-PC image
-  -> UART packet 256 byte + CRC8
-  -> FPGA ACK/NACK
-  -> SRAM[ADDR_ORIG]
-  -> AES DMA
+quartus/AES4Img.qpf
+quartus/AES4Img.qsf
+quartus/AES4Img.sdc
 ```
 
-Các module chính được thêm:
+`quartus/AES4Img.qsf` chỉ include source cần cho flow phần cứng `top_de`. Nó không include ROM debug top, preloaded profile, hay thư mục legacy.
 
-- `rtl/uart/baud_rate_gen.v`
-- `rtl/uart/uart_rx.v`
-- `rtl/uart/uart_tx.v`
-- `rtl/uart/uart_controller.v`
-- `rtl/uart/uart_rx_packet_256.v`
-- `rtl/uart/uart_sram_packet_writer_320x240.v`
-- `rtl/uart/uart_image_loader_320x240.v`
-- `rtl/sram/sram_arbiter_3m.v`
-- `rtl/control/aes_image_demo_controller_uart.v`
-- `rtl/top_uart.v`
+## Simulation Project Chính
 
-## Điểm cần chú ý khi compile thật
+Simulation vẫn include cả 2 top:
 
-1. `top_uart` là top-level khuyến nghị cho phần cứng thật.
-2. `top.v` dùng ROM ảnh 320x240, có thể không fit trên Cyclone II.
-3. Nếu dùng ROM và Quartus không infer đúng `$readmemh`, có thể cần thay bằng altsyncram/MIF.
-4. QSF chính cho UART là `quartus/AES_128_v2_1_uart.qsf`.
-5. ModelSim cần compile theo thứ tự trong `sim/scripts/modelsim_compile_functional.do`.
-6. `verify_pass` hiện là marker; verify đầy đủ nên làm bằng testbench hoặc thêm compare DMA.
+```text
+rtl/top.v
+rtl/top_de.v
+```
 
-## Những gì không nên commit lên GitHub
+Source list chính:
 
-Các thư mục build/output nên để local:
+```text
+sim/scripts/rtl_files.f
+sim/scripts/modelsim_compile_functional.do
+```
 
-- `quartus/db/`
-- `quartus/incremental_db/`
-- `quartus/output_files/`
-- `quartus/simulation/modelsim/`
-- `work/`
-- `transcript`
-- `*.wlf`, `*.vcd`, `*.sof`, `*.pof`, `*.rpt`, `*.summary`
-- `__pycache__/`
+## Legacy Policy
 
-`.gitignore` đã được cập nhật để tránh push các artifact này trong các lần sau.
+`legacy/` và `legacy_uart/` là archive. Quy định:
+
+- Không xóa.
+- Không đưa vào Quartus QSF chính.
+- Không đưa vào ModelSim compile script chính.
+- Không tham chiếu từ tài liệu kiến trúc hiện tại như một phần active design.
+- Chỉ dùng khi cần đối chiếu code cũ.
